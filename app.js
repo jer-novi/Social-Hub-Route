@@ -60,6 +60,10 @@ function distanceKm(a, b) {
   return earthRadiusKm * (2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine)));
 }
 
+function formatRange(low, high) {
+  return `${low} t/m ${high}`;
+}
+
 function formatDirection(low, high) {
   return state.direction === 'asc' ? `${low} ➜ ${high}` : `${high} ➜ ${low}`;
 }
@@ -109,7 +113,7 @@ function renderMap(visibleStreets) {
     const point = document.createElement('button');
     point.className = `map-point street ${done ? 'done' : ''}`;
     point.type = 'button';
-    point.title = `${street.name} (${street.low} t/m ${street.high})`;
+    point.title = `${street.name} (${formatRange(street.low, street.high)})`;
 
     const position = mapPosition(street);
     point.style.left = `${position.x}%`;
@@ -162,7 +166,7 @@ function render() {
 
     const rangeMeta = document.createElement('span');
     rangeMeta.className = 'meta';
-    rangeMeta.textContent = `Nummerbereik: ${street.low} t/m ${street.high}`;
+    rangeMeta.textContent = `Nummerbereik: ${formatRange(street.low, street.high)}`;
 
     const directionMeta = document.createElement('span');
     directionMeta.className = 'meta';
