@@ -72,6 +72,11 @@
             <button id="refetchBtn" class="btn" type="button" title="Straten opnieuw ophalen van OpenStreetMap">⤓ OSM</button>
             <button id="resetBtn" class="btn btn-danger" type="button" title="Alle voortgang wissen">Reset</button>
           </div>
+          <div class="control-row">
+            <button id="exportBtn" class="btn btn-primary export-btn" type="button" title="Overzicht voor de contactpersoon">
+              📤 Export / doorgeven aan contactpersoon
+            </button>
+          </div>
         </div>
 
         <div class="sticker-note">
@@ -94,6 +99,26 @@
         </div>
       </section>
     </main>
+
+    <div class="modal-overlay" id="exportModal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-label="Export overzicht">
+        <div class="modal-head">
+          <h2>Overzicht doorgeven</h2>
+          <button class="modal-close" id="exportClose" aria-label="Sluiten">✕</button>
+        </div>
+        <p class="modal-hint">
+          Plak dit in WhatsApp voor je uur-update, of download het voor de contactpersoon.
+          Maak daarnaast een foto/screenshot van de kaart hiernaast.
+        </p>
+        <textarea id="exportText" readonly spellcheck="false"></textarea>
+        <div class="modal-actions">
+          <button class="btn btn-primary" id="copyBtn" type="button">📋 Kopieer</button>
+          <button class="btn" id="downloadTxtBtn" type="button">⬇ .txt</button>
+          <button class="btn" id="downloadCsvBtn" type="button">⬇ .csv</button>
+          <button class="btn" id="printBtn" type="button">🖨 Print</button>
+        </div>
+      </div>
+    </div>
 
     <script
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"

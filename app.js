@@ -705,6 +705,159 @@ function addManual() {
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+/* ------------------------------ Export --------------------------------- */
+
+function rangesText(ss) {
+  return ss.ranges
+    .filter((r) => r.from !== '' || r.to !== '')
+    .map((r) => `${r.from || '?'} t/m ${r.to || '?'}`)
+    .join('; ');
+}
+
+function gatherForExport() {
+  const rows = [];
+  // OSM streets + manual-only streets
+  const names = new Set([...osmStreets.keys()]);
+  for (const key in state.streets) {
+    if (state.streets[key].manual) names.add(state.streets[key].name);
+  }
+  for (const name of names) {
+    const s = osmStreets.get(name);
+    const ss = streetState(name);
+    rows.push({
+      order: s ? s.order : 9998,
+      name,
+      status: ss.excluded ? 'excluded' : ss.status,
+      ranges: rangesText(ss),
+      numRange: s && s.low != null ? `${s.low}-${s.high}` : '',
+      note: ss.note || '',
+      manual: !!ss.manual,
+    });
+  }
+  rows.sort((a, b) => (a.order || 0) - (b.order || 0) || a.name.localeCompare(b.name));
+  return rows;
+}
+
+function buildReport() {
+  const rows = gatherForExport();
+  const date = new Date().toLocaleString('nl-NL');
+  const included = rows.filter((r) => r.status !== 'excluded');
+  const done = included.filter((r) => r.status === 'all' || r.status === 'none');
+  const partial = included.filter((r) => r.status === 'partial');
+  const todo = included.filter((r) => r.status === 'todo');
+  const excluded = rows.filter((r) => r.status === 'excluded');
+
+  const L = [];
+  L.push('Social Hub bezorgshift — Den Haag');
+  L.push(`Datum: ${date}`);
+  L.push(`Start: ${HUB.name}`);
+  L.push(
+    `Voortgang: ${done.length}/${included.length} straten afgehandeld` +
+      ` (${partial.length} deels, ${todo.length} nog te doen, ${excluded.length} NIET doen)`
+  );
+  L.push('');
+
+  const block = (title, list, fmt) => {
+    if (!list.length) return;
+    L.push(title);
+    list.forEach((r) => L.push('  ' + fmt(r)));
+    L.push('');
+  };
+
+  block('✓ ALLES BEZORGD:', done.filter((r) => r.status === 'all'), (r) =>
+    `${r.name}${r.numRange ? ` (${r.numRange})` : ''}`
+  );
+  block('◑ DEELS BEZORGD:', partial, (r) =>
+    `${r.name} — bezorgd: ${r.ranges || '(geen bereik ingevuld)'}`
+  );
+  block('✗ NIKS BEZORGD HIER:', done.filter((r) => r.status === 'none'), (r) =>
+    `${r.name}${r.note ? ` — ${r.note}` : ''}`
+  );
+  block('▢ NOG TE DOEN:', todo, (r) => `${r.name}${r.numRange ? ` (${r.numRange})` : ''}`);
+  block('⛔ NIET DOEN (rood):', excluded, (r) => `${r.name}${r.note ? ` — ${r.note}` : ''}`);
+
+  return L.join('\n');
+}
+
+function buildCsv() {
+  const rows = gatherForExport();
+  const statusLabel = {
+    all: 'alles bezorgd',
+    partial: 'deels',
+    none: 'niks bezorgd',
+    todo: 'nog te doen',
+    excluded: 'NIET doen',
+  };
+  const esc = (v) => `"${String(v).replace(/"/g, '""')}"`;
+  const head = ['volgorde', 'straat', 'status', 'bezorgde_bereiken', 'nummerbereik', 'notitie'];
+  const lines = [head.join(',')];
+  rows.forEach((r) => {
+    lines.push(
+      [
+        r.order < 9000 ? r.order : '',
+        esc(r.name),
+        statusLabel[r.status] || r.status,
+        esc(r.ranges),
+        esc(r.numRange),
+        esc(r.note),
+      ].join(',')
+    );
+  });
+  return lines.join('\n');
+}
+
+function download(filename, content, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function dateStamp() {
+  return new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+}
+
+function wireExport() {
+  const modal = document.getElementById('exportModal');
+  const textarea = document.getElementById('exportText');
+  const open = () => {
+    textarea.value = buildReport();
+    modal.hidden = false;
+  };
+  const close = () => (modal.hidden = true);
+
+  document.getElementById('exportBtn').addEventListener('click', open);
+  document.getElementById('exportClose').addEventListener('click', close);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) close();
+  });
+
+  document.getElementById('copyBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('copyBtn');
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+      btn.textContent = '✓ Gekopieerd';
+    } catch (e) {
+      textarea.select();
+      document.execCommand('copy');
+      btn.textContent = '✓ Gekopieerd';
+    }
+    setTimeout(() => (btn.textContent = '📋 Kopieer'), 1500);
+  });
+  document.getElementById('downloadTxtBtn').addEventListener('click', () =>
+    download(`social-hub-shift-${dateStamp()}.txt`, buildReport(), 'text/plain;charset=utf-8')
+  );
+  document.getElementById('downloadCsvBtn').addEventListener('click', () =>
+    download(`social-hub-shift-${dateStamp()}.csv`, buildCsv(), 'text/csv;charset=utf-8')
+  );
+  document.getElementById('printBtn').addEventListener('click', () => window.print());
+}
+
 /* ------------------------------- Boot ---------------------------------- */
 
 async function loadStreets(force) {
@@ -752,6 +905,7 @@ function boot() {
   seedExclusions();
   initMap();
   wireControls();
+  wireExport();
   refineHubLocation();
   loadStreets(false);
 }
