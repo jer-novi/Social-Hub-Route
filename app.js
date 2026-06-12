@@ -105,7 +105,7 @@ function renderMap(visibleStreets) {
 
   const radiusLabel = document.createElement('div');
   radiusLabel.className = 'map-legend';
-  radiusLabel.textContent = `Radius: ${state.radiusKm.toFixed(1)} km rond The Social Hub`;
+  radiusLabel.textContent = `Radius: ${state.radiusKm.toFixed(1)} km rond ${socialHub.name}`;
   map.appendChild(radiusLabel);
 
   visibleStreets.forEach((street) => {
@@ -139,7 +139,7 @@ function render() {
 
   summary.textContent = `${visibleStreets.length} straten binnen ${state.radiusKm.toFixed(
     1
-  )} km van The Social Hub.`;
+  )} km van ${socialHub.name}.`;
 
   streetList.innerHTML = '';
 
