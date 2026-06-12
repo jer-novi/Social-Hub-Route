@@ -557,7 +557,7 @@ function renderItem(s) {
     b.textContent = label;
     b.addEventListener('click', () => {
       ss.status = ss.status === val ? 'todo' : val;
-      if (ss.status === 'partial' && ss.ranges.length === 0) ss.ranges.push({ from: '', to: '' });
+      if (ss.status === 'partial' && ss.ranges.length === 0) ss.ranges.push({ from: '', to: '', parity: 'all' });
       saveState();
       restyleStreet(s.name);
       render();
@@ -608,26 +608,57 @@ function renderItem(s) {
       del.title = 'Bereik verwijderen';
       del.addEventListener('click', () => {
         ss.ranges.splice(idx, 1);
-        if (ss.ranges.length === 0) ss.ranges.push({ from: '', to: '' });
+        if (ss.ranges.length === 0) ss.ranges.push({ from: '', to: '', parity: 'all' });
         saveState();
         render();
       });
       row.append(from, sep, to, del);
-      wrap.appendChild(row);
+
+      // even/oneven/alles keuze per bereik
+      if (r.parity === undefined) r.parity = 'all';
+      const parity = document.createElement('div');
+      parity.className = 'parity';
+      [
+        ['all', 'Alles'],
+        ['even', 'Even'],
+        ['odd', 'Oneven'],
+      ].forEach(([val, label]) => {
+        const pb = document.createElement('button');
+        pb.type = 'button';
+        pb.className = 'par' + (r.parity === val ? ' active' : '');
+        pb.textContent = label;
+        pb.addEventListener('click', () => {
+          r.parity = val;
+          saveState();
+          render();
+        });
+        parity.appendChild(pb);
+      });
+
+      const count = expandRange(r).length;
+      const countEl = document.createElement('span');
+      countEl.className = 'range-count';
+      countEl.textContent = count ? `${count} nr${count > 1 ? "'s" : ''}` : '';
+
+      const item = document.createElement('div');
+      item.className = 'range-item';
+      item.append(row, parity, countEl);
+      wrap.appendChild(item);
     });
     const add = document.createElement('button');
     add.type = 'button';
     add.className = 'range-add';
     add.textContent = '+ extra bereik';
     add.addEventListener('click', () => {
-      ss.ranges.push({ from: '', to: '' });
+      ss.ranges.push({ from: '', to: '', parity: 'all' });
       saveState();
       render();
     });
     wrap.appendChild(add);
     const hint = document.createElement('div');
     hint.className = 'range-hint';
-    hint.textContent = 'Tip: t/m neemt automatisch hetzelfde nummer over (1 nummer). Pas aan voor een reeks.';
+    hint.textContent =
+      'Tip: t/m spiegelt automatisch (1 nummer). Kies Even/Oneven om binnen het bereik alleen die kant te tellen.';
     wrap.appendChild(hint);
     li.appendChild(wrap);
   }
@@ -952,11 +983,67 @@ function toast(msg) {
 
 /* ------------------------------ Export --------------------------------- */
 
-function rangesText(ss) {
-  return ss.ranges
-    .filter((r) => r.from !== '' || r.to !== '')
-    .map((r) => `${r.from || '?'} t/m ${r.to || '?'}`)
+// Bepaal de onder-/bovengrens van een bereik (volgorde-onafhankelijk).
+function rangeBounds(r) {
+  let a = parseInt(r.from, 10);
+  let b = parseInt(r.to, 10);
+  if (Number.isNaN(a) && Number.isNaN(b)) return null;
+  if (Number.isNaN(b)) b = a;
+  if (Number.isNaN(a)) a = b;
+  if (a > b) [a, b] = [b, a];
+  return [a, b];
+}
+
+// Vouw een bereik uit naar de daadwerkelijk bezorgde nummers (even/oneven/alles).
+function expandRange(r) {
+  const bnds = rangeBounds(r);
+  if (!bnds) return [];
+  const [a, b] = bnds;
+  const out = [];
+  for (let n = a; n <= b; n++) {
+    if (r.parity === 'even' && n % 2 !== 0) continue;
+    if (r.parity === 'odd' && n % 2 === 0) continue;
+    out.push(n);
+  }
+  return out;
+}
+
+function parityLabel(p) {
+  return p === 'even' ? ' (even)' : p === 'odd' ? ' (oneven)' : '';
+}
+
+// Korte omschrijving van één bereik, bv. "52 t/m 64 (even)" of "9".
+function rangeLabel(r) {
+  const bnds = rangeBounds(r);
+  if (!bnds) return '';
+  const [a, b] = bnds;
+  return a === b ? `${a}` : `${a} t/m ${b}${parityLabel(r.parity)}`;
+}
+
+function filledRanges(ss) {
+  return ss.ranges.filter((r) => r.from !== '' || r.to !== '');
+}
+
+// Samenvatting met uitgevouwen nummers, voor de export.
+function rangesSummary(ss) {
+  return filledRanges(ss)
+    .map((r) => {
+      const nums = expandRange(r);
+      const lbl = rangeLabel(r);
+      // toon de exacte nummers wanneer even/oneven is gekozen (geen misverstand)
+      if (r.parity && r.parity !== 'all' && nums.length > 1) {
+        return `${lbl} → ${nums.join(', ')}`;
+      }
+      return lbl;
+    })
     .join('; ');
+}
+
+// Platte lijst van alle bezorgde huisnummers (gesorteerd, uniek).
+function deliveredNumbers(ss) {
+  const set = new Set();
+  filledRanges(ss).forEach((r) => expandRange(r).forEach((n) => set.add(n)));
+  return [...set].sort((x, y) => x - y);
 }
 
 function gatherForExport() {
@@ -973,7 +1060,8 @@ function gatherForExport() {
       order: s ? s.order : 9998,
       name,
       status: ss.excluded ? 'excluded' : ss.status,
-      ranges: rangesText(ss),
+      ranges: rangesSummary(ss),
+      numbers: deliveredNumbers(ss).join(', '),
       numRange: s && s.low != null ? `${s.low}-${s.high}` : '',
       note: ss.note || '',
       manual: !!ss.manual,
@@ -1034,7 +1122,15 @@ function buildCsv() {
     excluded: 'NIET doen',
   };
   const esc = (v) => `"${String(v).replace(/"/g, '""')}"`;
-  const head = ['volgorde', 'straat', 'status', 'bezorgde_bereiken', 'nummerbereik', 'notitie'];
+  const head = [
+    'volgorde',
+    'straat',
+    'status',
+    'bezorgde_bereiken',
+    'bezorgde_nummers',
+    'nummerbereik',
+    'notitie',
+  ];
   const lines = [head.join(',')];
   rows.forEach((r) => {
     lines.push(
@@ -1043,6 +1139,7 @@ function buildCsv() {
         esc(r.name),
         statusLabel[r.status] || r.status,
         esc(r.ranges),
+        esc(r.numbers),
         esc(r.numRange),
         esc(r.note),
       ].join(',')
