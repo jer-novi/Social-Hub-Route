@@ -780,25 +780,64 @@ function onPosition(pos) {
   }
 }
 
-function onPositionError(err) {
-  stopLocate();
-  const msg =
-    err.code === 1
-      ? 'Locatietoegang geweigerd. Sta GPS toe in je browser om je positie te zien.'
-      : 'Kon je locatie niet bepalen (geen GPS-signaal?).';
-  alert(msg);
+function startWatch() {
+  watchId = navigator.geolocation.watchPosition(onPosition, onWatchError, {
+    enableHighAccuracy: true,
+    maximumAge: 2000,
+    timeout: 27000,
+  });
 }
 
-function toggleLocate() {
+// Fouten tijdens het live volgen (na de eerste fix): niet meteen stoppen.
+function onWatchError(err) {
+  if (err.code === 1) {
+    stopLocate();
+    showGpsHelp();
+  } else {
+    toast('GPS-signaal even kwijt…');
+  }
+}
+
+function showGpsHelp() {
+  showHelpModal(
+    'Locatie staat uit of is geblokkeerd',
+    `<p>Chrome krijgt geen toestemming voor je locatie. Loop deze 3 checks na (Android):</p>
+     <ol>
+       <li><b>Site-toestemming</b>: tik op het <b>🔒 / ⓘ</b> links in de adresbalk →
+         <b>Machtigingen</b> → <b>Locatie</b> → <b>Toestaan</b>.
+         (of ⋮ menu → <i>Instellingen → Site-instellingen → Locatie</i>)</li>
+       <li><b>Telefoon-locatie aan</b>: veeg van bovenaf omlaag en zet <b>Locatie/GPS</b> aan.</li>
+       <li><b>Chrome mag locatie</b>: Android <i>Instellingen → Apps → Chrome →
+         Machtigingen → Locatie → Toestaan</i>.</li>
+     </ol>
+     <p>Tik daarna opnieuw op de <b>📍</b>-knop.</p>`
+  );
+}
+
+async function toggleLocate() {
   const btn = document.getElementById('locateBtn');
   if (watchId !== null) {
     stopLocate();
     return;
   }
   if (!('geolocation' in navigator)) {
-    alert('Deze browser ondersteunt geen GPS-locatie.');
+    toast('Deze browser ondersteunt geen GPS-locatie.');
     return;
   }
+
+  // Vooraf checken: als de toestemming al geweigerd is, komt er geen popup.
+  if (navigator.permissions && navigator.permissions.query) {
+    try {
+      const status = await navigator.permissions.query({ name: 'geolocation' });
+      if (status.state === 'denied') {
+        showGpsHelp();
+        return;
+      }
+    } catch (e) {
+      /* permissions API niet beschikbaar — gewoon doorgaan */
+    }
+  }
+
   btn.classList.add('active');
   firstFix = true;
   // op mobiel: schakel naar de kaart-tab zodat je positie zichtbaar is
@@ -806,15 +845,81 @@ function toggleLocate() {
   if (mapTab && getComputedStyle(document.getElementById('tabs')).display !== 'none') {
     mapTab.click();
   }
-  watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, {
-    enableHighAccuracy: true,
-    maximumAge: 2000,
-    timeout: 20000,
-  });
+  toast('Locatie bepalen…');
+
+  // getCurrentPosition triggert de toestemmings-popup betrouwbaarder dan watchPosition.
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      onPosition(pos);
+      startWatch();
+    },
+    (err) => {
+      if (err.code === 1) {
+        stopLocate();
+        showGpsHelp();
+      } else if (err.code === 2) {
+        stopLocate();
+        toast('Geen locatie beschikbaar. Staat de GPS van je telefoon aan?');
+      } else {
+        // timeout: probeer het nog eens met minder nauwkeurigheid en blijf volgen
+        toast('Locatie duurt lang — ik probeer het grover…');
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            onPosition(pos);
+            startWatch();
+          },
+          () => {
+            stopLocate();
+            toast('Kon je locatie niet bepalen. Probeer buiten of opnieuw.');
+          },
+          { enableHighAccuracy: false, maximumAge: 60000, timeout: 27000 }
+        );
+      }
+    },
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 27000 }
+  );
 }
 
 function wireLocate() {
   document.getElementById('locateBtn').addEventListener('click', toggleLocate);
+}
+
+/* --------------------------- UI helpers -------------------------------- */
+
+function showHelpModal(title, html) {
+  let ov = document.getElementById('helpModal');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'helpModal';
+    ov.className = 'modal-overlay';
+    ov.innerHTML =
+      '<div class="modal"><div class="modal-head"><h2></h2>' +
+      '<button class="modal-close" aria-label="Sluiten">✕</button></div>' +
+      '<div class="modal-body"></div></div>';
+    document.body.appendChild(ov);
+    ov.querySelector('.modal-close').addEventListener('click', () => (ov.hidden = true));
+    ov.addEventListener('click', (e) => {
+      if (e.target === ov) ov.hidden = true;
+    });
+  }
+  ov.querySelector('h2').textContent = title;
+  ov.querySelector('.modal-body').innerHTML = html;
+  ov.hidden = false;
+}
+
+let toastTimer = null;
+function toast(msg) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.className = 'toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 4000);
 }
 
 /* ------------------------------ Export --------------------------------- */
