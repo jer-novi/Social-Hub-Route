@@ -292,6 +292,8 @@ body {
   cursor: pointer;
 }
 
+.range-hint { font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; }
+
 .item-foot { display: flex; gap: 0.4rem; margin-top: 0.45rem; }
 .note-input {
   flex: 1;
