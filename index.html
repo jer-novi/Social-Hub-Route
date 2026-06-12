@@ -43,6 +43,9 @@
 
     <main class="layout" id="layout">
       <section class="panel side" aria-label="Bediening en stratenlijst">
+        <button class="opts-toggle" id="optsToggle" type="button" aria-expanded="true">
+          ⚙︎ Opties verbergen
+        </button>
         <div class="side-top" id="sideTop">
         <div class="controls">
           <div class="control-row">
@@ -98,6 +101,7 @@
       <section class="panel map-panel" aria-label="Kaart">
         <div id="map"></div>
         <button id="locateBtn" class="locate-btn" type="button" title="Toon mijn locatie (GPS)" aria-label="Toon mijn locatie">📍</button>
+        <a id="gmapsBtn" class="locate-btn gmaps-btn" href="https://www.google.com/maps" target="_blank" rel="noopener" title="Open Google Maps (huidige locatie)" aria-label="Open Google Maps">🧭</a>
         <div class="map-legend">
           <span><i class="dot dot-hub"></i> Social Hub</span>
           <span><i class="dot dot-todo"></i> Te doen</span>

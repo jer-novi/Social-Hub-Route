@@ -114,6 +114,7 @@ body {
   place-items: center;
 }
 .locate-btn.active { background: var(--blue); border-color: var(--blue); }
+.gmaps-btn { top: 128px; text-decoration: none; }
 
 /* ---------- Layout ---------- */
 .layout {
@@ -131,14 +132,29 @@ body {
   min-height: 0;
 }
 
-/* ---------- Inklapbaar bovendeel (mobiel) ---------- */
+/* ---------- Inklapbaar bovendeel ---------- */
+.opts-toggle {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: #f1f5f9;
+  color: var(--muted);
+  padding: 0.45rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.opts-toggle:hover { background: #e7edf4; }
+
 .side-top {
   max-height: 1000px;
   opacity: 1;
   overflow: hidden;
   transition: max-height 0.28s ease, opacity 0.18s ease;
 }
-.side.collapsed .side-top {
+.side.collapsed .side-top,
+.side.controls-hidden .side-top {
   max-height: 0;
   opacity: 0;
 }
@@ -470,4 +486,5 @@ body {
   .side { border-right: 0; }
   .progress { min-width: 150px; }
   .locate-btn { top: 12px; }
+  .gmaps-btn { top: 60px; }
 }
