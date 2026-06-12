@@ -304,6 +304,30 @@ body {
   cursor: pointer;
 }
 
+.range-item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.5rem;
+  padding: 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fafbfc;
+}
+.range-item .range-row { margin: 0; }
+.parity { display: inline-flex; gap: 0.2rem; }
+.par {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 5px;
+  padding: 0.22rem 0.45rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+  color: var(--muted);
+}
+.par.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+.range-count { font-size: 0.72rem; color: var(--muted); margin-left: auto; }
+
 .range-hint { font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; }
 
 .item-foot { display: flex; gap: 0.4rem; margin-top: 0.45rem; }
