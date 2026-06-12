@@ -1729,9 +1729,15 @@ function applyImport(obj) {
       if (src.note && !ss.note) ss.note = src.note;
       if (src.status && (!ss.status || ss.status === 'todo')) ss.status = src.status;
       if (Array.isArray(src.ranges) && (!ss.ranges || !ss.ranges.length)) ss.ranges = src.ranges;
+      if (src.done !== undefined) {
+        ss.done = src.done;
+        ss.collapsed = !!src.done;
+      }
       n++;
     }
     saveState();
+    computeRoute();
+    drawStreets();
     render();
     toast(`Toevoegingen samengevoegd voor ${n} straten.`);
     return;
