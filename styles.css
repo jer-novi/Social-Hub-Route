@@ -346,6 +346,9 @@ body {
 
 .range-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .add-plus { border-color: var(--blue); color: var(--blue); }
+.bell-plus { border-color: #b45309; color: #b45309; }
+.bell-row { border-color: #f0c486 !important; background: #fff8ec !important; }
+.backup-row { margin-top: 0.4rem; border-top: 1px solid var(--line); padding-top: 0.5rem; }
 
 .adds { display: grid; gap: 0.35rem; margin-top: 0.3rem; }
 .add-row {
