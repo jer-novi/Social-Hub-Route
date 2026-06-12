@@ -52,8 +52,9 @@
             <label for="filterSelect">Toon</label>
             <select id="filterSelect">
               <option value="todo">Nog te doen</option>
-              <option value="all">Alle straten</option>
+              <option value="busy">Mee bezig (niet afgerond)</option>
               <option value="done">Afgerond</option>
+              <option value="all">Alle straten</option>
               <option value="excluded">NIET doen (rood)</option>
             </select>
           </div>
@@ -75,6 +76,9 @@
           <div class="control-row add-row">
             <input id="addInput" type="text" placeholder="Straat handmatig toevoegen…" />
             <button id="addBtn" class="btn btn-primary" type="button">+ Toevoegen</button>
+          </div>
+          <div class="control-row">
+            <button id="lastEditBtn" class="btn btn-primary export-btn" type="button" title="Spring naar de straat die je het laatst invulde">↩ Naar laatst bewerkte straat</button>
           </div>
           <div class="control-row actions-row">
             <button id="recomputeBtn" class="btn" type="button" title="Route opnieuw berekenen vanaf de hub">↻ Route</button>
@@ -105,8 +109,8 @@
         <div class="map-legend">
           <span><i class="dot dot-hub"></i> Social Hub</span>
           <span><i class="dot dot-todo"></i> Te doen</span>
+          <span><i class="dot dot-partial"></i> Mee bezig</span>
           <span><i class="dot dot-done"></i> Afgerond</span>
-          <span><i class="dot dot-partial"></i> Deels</span>
           <span><i class="dot dot-excl"></i> NIET doen</span>
         </div>
       </section>
