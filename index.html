@@ -36,7 +36,12 @@
       <button class="banner-close" id="bannerClose" aria-label="Sluiten">✕</button>
     </div>
 
-    <main class="layout">
+    <nav class="tabs" id="tabs" role="tablist">
+      <button class="tab active" data-tab="list" role="tab" type="button">📋 Lijst</button>
+      <button class="tab" data-tab="map" role="tab" type="button">🗺️ Kaart</button>
+    </nav>
+
+    <main class="layout" id="layout">
       <section class="panel side" aria-label="Bediening en stratenlijst">
         <div class="controls">
           <div class="control-row">
@@ -90,6 +95,7 @@
 
       <section class="panel map-panel" aria-label="Kaart">
         <div id="map"></div>
+        <button id="locateBtn" class="locate-btn" type="button" title="Toon mijn locatie (GPS)" aria-label="Toon mijn locatie">📍</button>
         <div class="map-legend">
           <span><i class="dot dot-hub"></i> Social Hub</span>
           <span><i class="dot dot-todo"></i> Te doen</span>

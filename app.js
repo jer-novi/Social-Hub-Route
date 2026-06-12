@@ -705,6 +705,106 @@ function addManual() {
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+/* ------------------------------ Tabs ----------------------------------- */
+
+function wireTabs() {
+  const layout = document.getElementById('layout');
+  const tabs = document.querySelectorAll('#tabs .tab');
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      tabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+      const showMap = tab.dataset.tab === 'map';
+      layout.classList.toggle('show-map', showMap);
+      if (showMap && map) {
+        // Leaflet moet hertekenen nadat de container zichtbaar wordt
+        setTimeout(() => map.invalidateSize(), 50);
+      }
+    });
+  });
+}
+
+/* ------------------------------ GPS ------------------------------------ */
+
+let posMarker = null;
+let accCircle = null;
+let watchId = null;
+let firstFix = true;
+
+function stopLocate() {
+  if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+  watchId = null;
+  firstFix = true;
+  document.getElementById('locateBtn').classList.remove('active');
+}
+
+function onPosition(pos) {
+  const { latitude, longitude, accuracy } = pos.coords;
+  const ll = [latitude, longitude];
+  if (!posMarker) {
+    posMarker = L.circleMarker(ll, {
+      radius: 8,
+      color: '#fff',
+      weight: 3,
+      fillColor: '#2563eb',
+      fillOpacity: 1,
+    })
+      .addTo(map)
+      .bindTooltip('Jouw locatie');
+    accCircle = L.circle(ll, {
+      radius: accuracy,
+      color: '#2563eb',
+      weight: 1,
+      fillColor: '#2563eb',
+      fillOpacity: 0.1,
+    }).addTo(map);
+  } else {
+    posMarker.setLatLng(ll);
+    accCircle.setLatLng(ll).setRadius(accuracy);
+  }
+  if (firstFix) {
+    map.setView(ll, 17);
+    firstFix = false;
+  }
+}
+
+function onPositionError(err) {
+  stopLocate();
+  const msg =
+    err.code === 1
+      ? 'Locatietoegang geweigerd. Sta GPS toe in je browser om je positie te zien.'
+      : 'Kon je locatie niet bepalen (geen GPS-signaal?).';
+  alert(msg);
+}
+
+function toggleLocate() {
+  const btn = document.getElementById('locateBtn');
+  if (watchId !== null) {
+    stopLocate();
+    return;
+  }
+  if (!('geolocation' in navigator)) {
+    alert('Deze browser ondersteunt geen GPS-locatie.');
+    return;
+  }
+  btn.classList.add('active');
+  firstFix = true;
+  // op mobiel: schakel naar de kaart-tab zodat je positie zichtbaar is
+  const mapTab = document.querySelector('#tabs .tab[data-tab="map"]');
+  if (mapTab && getComputedStyle(document.getElementById('tabs')).display !== 'none') {
+    mapTab.click();
+  }
+  watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, {
+    enableHighAccuracy: true,
+    maximumAge: 2000,
+    timeout: 20000,
+  });
+}
+
+function wireLocate() {
+  document.getElementById('locateBtn').addEventListener('click', toggleLocate);
+}
+
 /* ------------------------------ Export --------------------------------- */
 
 function rangesText(ss) {
@@ -905,6 +1005,8 @@ function boot() {
   seedExclusions();
   initMap();
   wireControls();
+  wireTabs();
+  wireLocate();
   wireExport();
   refineHubLocation();
   loadStreets(false);
