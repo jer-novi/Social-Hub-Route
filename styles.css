@@ -30,6 +30,10 @@ body {
   padding: 0.5rem;
 }
 
+.controls .input-error {
+  border: 2px solid #d1242f;
+}
+
 #streetList {
   list-style: none;
   margin: 0;
@@ -86,7 +90,6 @@ body {
   height: 18px;
   border-radius: 50%;
   border: 2px solid transparent;
-  cursor: pointer;
 }
 
 .map-point.hub {
@@ -100,6 +103,7 @@ body {
 .map-point.street {
   background: #f59e0b;
   border-color: #be7500;
+  cursor: pointer;
 }
 
 .map-point.street.done {

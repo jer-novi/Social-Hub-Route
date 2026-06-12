@@ -68,6 +68,13 @@ function formatDirection(low, high) {
   return state.direction === 'asc' ? `${low} ➜ ${high}` : `${high} ➜ ${low}`;
 }
 
+function formatStreetId(streetName) {
+  return streetName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 function inRadius(street) {
   return distanceKm(socialHub, street) <= state.radiusKm;
 }
@@ -93,18 +100,19 @@ function mapPosition(street) {
 function renderMap(visibleStreets) {
   map.innerHTML = '';
 
-  const hub = document.createElement('button');
+  const hub = document.createElement('div');
   hub.className = 'map-point hub';
-  hub.type = 'button';
+  hub.setAttribute('role', 'img');
+  hub.setAttribute('aria-label', socialHub.name);
   const hubPos = mapPosition(socialHub);
   hub.style.left = `${hubPos.x}%`;
   hub.style.top = `${hubPos.y}%`;
-  hub.title = socialHub.name;
   hub.textContent = 'H';
   map.appendChild(hub);
 
   const radiusLabel = document.createElement('div');
   radiusLabel.className = 'map-legend';
+  radiusLabel.setAttribute('aria-live', 'polite');
   radiusLabel.textContent = `Radius: ${state.radiusKm.toFixed(1)} km rond ${socialHub.name}`;
   map.appendChild(radiusLabel);
 
@@ -154,7 +162,7 @@ function render() {
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = done;
-    checkbox.id = `street-${street.name}`;
+    checkbox.id = `street-${formatStreetId(street.name)}`;
     checkbox.addEventListener('change', () => {
       setDone(street.name, checkbox.checked);
       render();
@@ -187,10 +195,17 @@ function render() {
 
 radiusInput.addEventListener('input', () => {
   const value = Number.parseFloat(radiusInput.value);
-  if (!Number.isNaN(value) && value > 0) {
-    state.radiusKm = value;
-    render();
+  if (Number.isNaN(value) || value <= 0) {
+    radiusInput.classList.add('input-error');
+    radiusInput.setAttribute('aria-invalid', 'true');
+    summary.textContent = 'Voer een radius groter dan 0 in.';
+    return;
   }
+
+  radiusInput.classList.remove('input-error');
+  radiusInput.removeAttribute('aria-invalid');
+  state.radiusKm = value;
+  render();
 });
 
 directionSelect.addEventListener('change', () => {
