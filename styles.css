@@ -1,0 +1,122 @@
+:root {
+  color-scheme: light;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #f5f6f8;
+}
+
+.layout {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.panel {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1rem;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+
+.controls input,
+.controls select {
+  width: 100%;
+  margin-top: 0.35rem;
+  margin-bottom: 0.85rem;
+  padding: 0.5rem;
+}
+
+.controls .input-error {
+  border: 2px solid #d1242f;
+}
+
+#streetList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+#streetList li {
+  border: 1px solid #d6d9df;
+  border-radius: 8px;
+  padding: 0.6rem;
+}
+
+.street-done {
+  background: #e9f9ed;
+  border-color: #5cc26f;
+}
+
+.meta {
+  display: block;
+  margin-top: 0.3rem;
+  color: #2d3640;
+  font-size: 0.92rem;
+}
+
+#map {
+  position: relative;
+  width: 100%;
+  min-height: 360px;
+  border-radius: 8px;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(35, 44, 55, 0.07) 0,
+      rgba(35, 44, 55, 0.07) 1px,
+      transparent 1px,
+      transparent 36px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(35, 44, 55, 0.07) 0,
+      rgba(35, 44, 55, 0.07) 1px,
+      transparent 1px,
+      transparent 36px
+    ),
+    #eef5ff;
+}
+
+.map-point {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+}
+
+.map-point.hub {
+  background: #1f6feb;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: bold;
+  border-color: #0f4fa8;
+}
+
+.map-point.street {
+  background: #f59e0b;
+  border-color: #be7500;
+  cursor: pointer;
+}
+
+.map-point.street.done {
+  background: #2da44e;
+  border-color: #1f7a39;
+}
+
+.map-legend {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.86rem;
+}

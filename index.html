@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Social Hub Routeplanner</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="panel controls">
+        <h1>Routeplanner - Social Hub Den Haag</h1>
+        <p>
+          Kies een radius voor je shift. Je ziet direct welke straten binnen bereik
+          liggen rondom The Social Hub in Den Haag.
+        </p>
+
+        <label for="radiusInput">Radius (km)</label>
+        <input id="radiusInput" type="number" min="0.1" step="0.1" value="1.5" />
+
+        <label for="directionSelect">Looprichting huisnummers</label>
+        <select id="directionSelect">
+          <option value="asc">Laag ➜ hoog</option>
+          <option value="desc">Hoog ➜ laag</option>
+        </select>
+
+        <p id="summary"></p>
+      </section>
+
+      <section class="panel list-panel">
+        <h2>Stratenlijst (af te vinken)</h2>
+        <ul id="streetList"></ul>
+      </section>
+
+      <section class="panel map-panel">
+        <h2>Kaart (klik punt om af te vinken)</h2>
+        <div id="map" aria-label="Kaart met straten"></div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
