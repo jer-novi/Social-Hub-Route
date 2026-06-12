@@ -131,6 +131,18 @@ body {
   min-height: 0;
 }
 
+/* ---------- Inklapbaar bovendeel (mobiel) ---------- */
+.side-top {
+  max-height: 1000px;
+  opacity: 1;
+  overflow: hidden;
+  transition: max-height 0.28s ease, opacity 0.18s ease;
+}
+.side.collapsed .side-top {
+  max-height: 0;
+  opacity: 0;
+}
+
 /* ---------- Controls ---------- */
 .controls {
   padding: 0.7rem;

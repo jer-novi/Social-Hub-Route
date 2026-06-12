@@ -736,6 +736,34 @@ function wireTabs() {
   });
 }
 
+/* ---------------- Inklappen bovenbalk bij scrollen --------------------- */
+
+function wireCollapse() {
+  const list = els.list;
+  const side = document.querySelector('.side');
+  const mq = window.matchMedia('(max-width: 820px)');
+  let last = 0;
+  list.addEventListener(
+    'scroll',
+    () => {
+      if (!mq.matches) {
+        side.classList.remove('collapsed');
+        return;
+      }
+      const cur = list.scrollTop;
+      if (cur <= 4) {
+        side.classList.remove('collapsed'); // bovenaan: altijd open
+      } else if (cur > last + 4) {
+        side.classList.add('collapsed'); // omlaag scrollen: inklappen
+      } else if (cur < last - 8) {
+        side.classList.remove('collapsed'); // omhoog scrollen: uitklappen
+      }
+      last = cur;
+    },
+    { passive: true }
+  );
+}
+
 /* ------------------------------ GPS ------------------------------------ */
 
 let posMarker = null;
@@ -1123,6 +1151,7 @@ function boot() {
   initMap();
   wireControls();
   wireTabs();
+  wireCollapse();
   wireLocate();
   wireExport();
   refineHubLocation();
