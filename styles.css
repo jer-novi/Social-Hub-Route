@@ -383,6 +383,31 @@ body {
 
 .modal-check { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; margin: 0 0 0.5rem; }
 
+.done-check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #166534;
+}
+.done-check input { width: 1.05rem; height: 1.05rem; }
+
+.collapsed-done { opacity: 0.95; }
+.collapsed-done .item-head { align-items: center; }
+.collapsed-done .order { background: var(--green); }
+.open-btn {
+  flex: 0 0 auto;
+  border: 1px solid #b7e4c7;
+  background: #fff;
+  color: #166534;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+}
+
 .range-hint { font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; }
 
 .item-foot { display: flex; gap: 0.4rem; margin-top: 0.45rem; }

@@ -73,6 +73,23 @@ function streetState(name) {
   return state.streets[key];
 }
 
+// Onthoud de laatst bewerkte straat (voor de "spring naar laatste"-knop).
+function markEdited(name) {
+  state.lastEdited = name;
+}
+
+// Migratie: zet 'afgerond' voor straten die voorheen automatisch klaar waren.
+function migrateDone() {
+  if (state._doneMigrated) return;
+  for (const key in state.streets) {
+    const ss = state.streets[key];
+    if (ss.done === undefined) ss.done = ss.status === 'all' || ss.status === 'none';
+    if (ss.collapsed === undefined) ss.collapsed = ss.done;
+  }
+  state._doneMigrated = true;
+  saveState();
+}
+
 // Markeer de standaard-uitgesloten straten (best guess uit de PDF) bij eerste run.
 function seedExclusions() {
   if (state._seeded) return;
@@ -280,9 +297,11 @@ const COLORS = {
 
 function statusColor(name) {
   const ss = state.streets[name.toLowerCase()];
-  if (ss && ss.excluded) return COLORS.excluded;
   if (!ss) return COLORS.todo;
-  return COLORS[ss.status] || COLORS.todo;
+  if (ss.excluded) return COLORS.excluded;
+  if (ss.done) return COLORS.all; // afgerond = groen
+  if (ss.status && ss.status !== 'todo') return COLORS.partial; // mee bezig = oranje
+  return COLORS.todo;
 }
 
 function initMap() {
@@ -423,7 +442,10 @@ function rangeText(s, ss) {
 }
 
 function isDone(ss) {
-  return ss.status === 'all' || ss.status === 'none';
+  return !!ss.done; // afgerond-vinkje bepaalt voltooiing
+}
+function isBusy(ss) {
+  return !ss.excluded && !ss.done && ss.status && ss.status !== 'todo';
 }
 
 function visibleStreets() {
@@ -443,9 +465,11 @@ function visibleStreets() {
     if (q && !s.name.toLowerCase().includes(q)) return false;
     switch (state.filter) {
       case 'todo':
-        return !ss.excluded && !isDone(ss);
+        return !ss.excluded && !ss.done && (!ss.status || ss.status === 'todo');
+      case 'busy':
+        return isBusy(ss);
       case 'done':
-        return !ss.excluded && isDone(ss);
+        return !ss.excluded && ss.done;
       case 'excluded':
         return ss.excluded;
       default:
@@ -464,11 +488,11 @@ function render() {
   const all = [...osmStreets.values()];
   const included = all.filter((s) => !streetState(s.name).excluded);
   const done = included.filter((s) => isDone(streetState(s.name))).length;
-  const partial = included.filter((s) => streetState(s.name).status === 'partial').length;
+  const busy = included.filter((s) => isBusy(streetState(s.name))).length;
   const excluded = all.filter((s) => streetState(s.name).excluded).length;
   const pct = included.length ? Math.round((done / included.length) * 100) : 0;
   els.progressFill.style.width = pct + '%';
-  els.progressText.textContent = `${done}/${included.length} afgehandeld · ${partial} deels · ${excluded} NIET doen`;
+  els.progressText.textContent = `${done}/${included.length} afgerond · ${busy} mee bezig · ${excluded} NIET doen`;
 
   // list
   els.list.innerHTML = '';
@@ -487,9 +511,44 @@ function renderItem(s) {
   const li = document.createElement('li');
   li.className = 'street-item';
   li.dataset.street = s.name;
+  const started = !ss.excluded && ss.status && ss.status !== 'todo';
   if (ss.excluded) li.classList.add('excluded');
-  else if (ss.status === 'all' || ss.status === 'none') li.classList.add('done');
-  else if (ss.status === 'partial') li.classList.add('partial');
+  else if (ss.done) li.classList.add('done');
+  else if (started) li.classList.add('partial');
+
+  // Afgeronde straat: ingeklapt compact tonen (geen per ongeluk wijzigen).
+  if (ss.done && ss.collapsed !== false && !ss.excluded) {
+    li.classList.add('collapsed-done');
+    const row = document.createElement('div');
+    row.className = 'item-head';
+    const badge = document.createElement('span');
+    badge.className = 'order';
+    badge.textContent = '✓';
+    const tw = document.createElement('div');
+    tw.className = 'title-wrap';
+    const nm = document.createElement('button');
+    nm.className = 'street-name';
+    nm.type = 'button';
+    nm.textContent = s.name;
+    nm.addEventListener('click', () => selectStreet(s.name, false));
+    const sub = document.createElement('span');
+    sub.className = 'meta';
+    sub.textContent = 'Afgerond' + (rangesSummary(ss) ? ` · ${rangesSummary(ss)}` : '');
+    tw.append(nm, sub);
+    const openBtn = document.createElement('button');
+    openBtn.type = 'button';
+    openBtn.className = 'open-btn';
+    openBtn.textContent = '✎ open';
+    openBtn.title = 'Uitklappen om te wijzigen';
+    openBtn.addEventListener('click', () => {
+      ss.collapsed = false;
+      saveState();
+      render();
+    });
+    row.append(badge, tw, openBtn);
+    li.appendChild(row);
+    return li;
+  }
 
   // header row
   const head = document.createElement('div');
@@ -560,6 +619,7 @@ function renderItem(s) {
     b.addEventListener('click', () => {
       ss.status = ss.status === val ? 'todo' : val;
       if (ss.status === 'partial' && ss.ranges.length === 0) ss.ranges.push({ from: '', to: '', parity: 'all' });
+      markEdited(s.name);
       saveState();
       restyleStreet(s.name);
       render();
@@ -596,11 +656,13 @@ function renderItem(s) {
           r.to = from.value; // spiegel automatisch → reeks van 1 nummer
           to.value = from.value;
         }
+        markEdited(s.name);
         saveState();
       });
       to.addEventListener('input', () => {
         r.to = to.value;
         r.toTouched = to.value !== ''; // leeg maken = weer automatisch spiegelen
+        markEdited(s.name);
         saveState();
       });
       const del = document.createElement('button');
@@ -735,16 +797,19 @@ function renderItem(s) {
         down.addEventListener('click', () => stepTo(-1));
         baseIn.addEventListener('input', () => {
           a.base = baseIn.value;
+          markEdited(s.name);
           saveState();
           drawPrev();
         });
         lf.addEventListener('input', () => {
           a.lf = lf.value.toLowerCase();
+          markEdited(s.name);
           saveState();
           drawPrev();
         });
         lt.addEventListener('input', () => {
           a.lt = lt.value.toLowerCase();
+          markEdited(s.name);
           saveState();
           drawPrev();
         });
@@ -785,6 +850,7 @@ function renderItem(s) {
   noteInput.value = ss.note || '';
   noteInput.addEventListener('input', () => {
     ss.note = noteInput.value;
+    markEdited(s.name);
     saveState();
   });
   foot.appendChild(noteInput);
@@ -801,6 +867,35 @@ function renderItem(s) {
     foot.appendChild(rm);
   }
   li.appendChild(foot);
+
+  // "Straat afgerond" — aan = groen + inklappen (extra check, standaard uit)
+  const doneLabel = document.createElement('label');
+  doneLabel.className = 'done-check';
+  const doneChk = document.createElement('input');
+  doneChk.type = 'checkbox';
+  doneChk.checked = !!ss.done;
+  doneChk.addEventListener('change', () => {
+    ss.done = doneChk.checked;
+    ss.collapsed = doneChk.checked; // afronden = inklappen
+    markEdited(s.name);
+    saveState();
+    restyleStreet(s.name);
+    render();
+  });
+  doneLabel.append(doneChk, document.createTextNode(' Straat afgerond'));
+  li.appendChild(doneLabel);
+  if (ss.done) {
+    const collapseBtn = document.createElement('button');
+    collapseBtn.type = 'button';
+    collapseBtn.className = 'open-btn';
+    collapseBtn.textContent = '▲ inklappen';
+    collapseBtn.addEventListener('click', () => {
+      ss.collapsed = true;
+      saveState();
+      render();
+    });
+    doneLabel.appendChild(collapseBtn);
+  }
 
   return li;
 }
@@ -831,6 +926,9 @@ function wireControls() {
     if (e.key === 'Enter') addManual();
   });
 
+  const lastBtn = document.getElementById('lastEditBtn');
+  if (lastBtn) lastBtn.addEventListener('click', scrollToLastEdited);
+
   document.getElementById('recomputeBtn').addEventListener('click', () => {
     computeRoute();
     drawStreets();
@@ -845,6 +943,37 @@ function wireControls() {
 
   const banner = document.getElementById('estimateBanner');
   document.getElementById('bannerClose').addEventListener('click', () => (banner.style.display = 'none'));
+}
+
+// Spring naar de straat waar je het laatst aan het invullen was.
+function scrollToLastEdited() {
+  const name = state.lastEdited;
+  if (!name) {
+    toast('Nog geen straat bewerkt deze sessie.');
+    return;
+  }
+  const ss = state.streets[name.toLowerCase()];
+  if (ss && ss.done) ss.collapsed = false; // uitklappen zodat je verder kunt
+  const focus = () => {
+    const el = document.querySelector(`[data-street="${cssEscape(name)}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('flash');
+      setTimeout(() => el.classList.remove('flash'), 1200);
+      return true;
+    }
+    return false;
+  };
+  saveState();
+  render();
+  if (!focus()) {
+    // staat in deze filter niet zichtbaar → toon alles en probeer opnieuw
+    state.filter = 'all';
+    els.filter.value = 'all';
+    saveState();
+    render();
+    focus();
+  }
 }
 
 function addManual() {
@@ -1227,6 +1356,7 @@ function gatherForExport() {
       order: s ? s.order : 9998,
       name,
       status: ss.excluded ? 'excluded' : ss.status,
+      done: !!ss.done,
       ranges: rangesSummary(ss),
       numbers: deliveredAllText(ss),
       numRange: s && s.low != null ? `${s.low}-${s.high}` : '',
@@ -1242,9 +1372,9 @@ function buildReport() {
   const rows = gatherForExport();
   const date = new Date().toLocaleString('nl-NL');
   const included = rows.filter((r) => r.status !== 'excluded');
-  const done = included.filter((r) => r.status === 'all' || r.status === 'none');
-  const partial = included.filter((r) => r.status === 'partial');
-  const todo = included.filter((r) => r.status === 'todo');
+  const afgerond = included.filter((r) => r.done);
+  const busy = included.filter((r) => !r.done && r.status && r.status !== 'todo');
+  const todo = included.filter((r) => !r.done && (!r.status || r.status === 'todo'));
   const excluded = rows.filter((r) => r.status === 'excluded');
 
   const L = [];
@@ -1252,8 +1382,8 @@ function buildReport() {
   L.push(`Datum: ${date}`);
   L.push(`Start: ${HUB.name}`);
   L.push(
-    `Voortgang: ${done.length}/${included.length} straten afgehandeld` +
-      ` (${partial.length} deels, ${todo.length} nog te doen, ${excluded.length} NIET doen)`
+    `Voortgang: ${afgerond.length}/${included.length} afgerond` +
+      ` (${busy.length} mee bezig, ${todo.length} nog te doen, ${excluded.length} NIET doen)`
   );
   L.push('');
 
@@ -1267,13 +1397,12 @@ function buildReport() {
     L.push('');
   };
 
-  block('✓ ALLES BEZORGD:', done.filter((r) => r.status === 'all'), (r) =>
-    `${r.name}${r.numRange ? ` (${r.numRange})` : ''}`
+  block('✓ AFGEROND:', afgerond, (r) =>
+    `${r.name}${r.ranges ? ` — ${r.ranges}` : r.numRange ? ` (${r.numRange})` : ''}`
   );
-  block('◑ DEELS BEZORGD:', partial, (r) =>
-    `${r.name} — bezorgd: ${r.ranges || '(geen bereik ingevuld)'}`
+  block('◑ MEE BEZIG (niet afgerond):', busy, (r) =>
+    `${r.name}${r.ranges ? ` — bezorgd: ${r.ranges}` : ''}`
   );
-  block('✗ NIKS BEZORGD HIER:', done.filter((r) => r.status === 'none'), (r) => `${r.name}`);
   block('▢ NOG TE DOEN:', todo, (r) => `${r.name}${r.numRange ? ` (${r.numRange})` : ''}`);
   block('⛔ NIET DOEN (rood):', excluded, (r) => `${r.name}`);
 
@@ -1376,18 +1505,17 @@ function buildSchematicSVG() {
 
 function buildOverviewHTML() {
   const rows = gatherForExport();
-  const done = rows.filter((r) => r.status === 'all');
-  const partial = rows.filter((r) => r.status === 'partial');
-  const none = rows.filter((r) => r.status === 'none');
-  const todo = rows.filter((r) => r.status === 'todo');
+  const included = rows.filter((r) => r.status !== 'excluded');
+  const afgerond = included.filter((r) => r.done);
+  const busy = included.filter((r) => !r.done && r.status && r.status !== 'todo');
+  const todo = included.filter((r) => !r.done && (!r.status || r.status === 'todo'));
   const excl = rows.filter((r) => r.status === 'excluded');
   const note = (r) => (state.exportNotes && r.note ? ` <span class="nt">📝 ${htmlEsc(r.note)}</span>` : '');
   const grp = (title, list, fmt) =>
     list.length ? `<h3>${title}</h3><ul>${list.map((r) => `<li>${fmt(r)}${note(r)}</li>`).join('')}</ul>` : '';
   return (
-    grp('✓ Alles bezorgd', done, (r) => `<b>${htmlEsc(r.name)}</b>${r.numRange ? ` (${r.numRange})` : ''}`) +
-    grp('◑ Deels bezorgd', partial, (r) => `<b>${htmlEsc(r.name)}</b> — ${htmlEsc(r.ranges || '')}`) +
-    grp('✗ Niks bezorgd', none, (r) => `<b>${htmlEsc(r.name)}</b>`) +
+    grp('✓ Afgerond', afgerond, (r) => `<b>${htmlEsc(r.name)}</b>${r.ranges ? ` — ${htmlEsc(r.ranges)}` : r.numRange ? ` (${r.numRange})` : ''}`) +
+    grp('◑ Mee bezig (niet afgerond)', busy, (r) => `<b>${htmlEsc(r.name)}</b>${r.ranges ? ` — ${htmlEsc(r.ranges)}` : ''}`) +
     grp('⛔ NIET doen (rood)', excl, (r) => `<b>${htmlEsc(r.name)}</b>`) +
     `<p class="muted">Nog te doen: ${todo.length} straten.</p>`
   );
@@ -1523,6 +1651,7 @@ async function loadStreets(force) {
 }
 
 function boot() {
+  migrateDone();
   seedExclusions();
   initMap();
   wireControls();
