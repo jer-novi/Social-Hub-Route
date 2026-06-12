@@ -344,6 +344,45 @@ body {
 .par.active { background: var(--blue); border-color: var(--blue); color: #fff; }
 .range-count { font-size: 0.72rem; color: var(--muted); margin-left: auto; }
 
+.range-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.add-plus { border-color: var(--blue); color: var(--blue); }
+
+.adds { display: grid; gap: 0.35rem; margin-top: 0.3rem; }
+.add-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.35rem;
+  border: 1px dashed var(--blue);
+  border-radius: 7px;
+  background: #f5f8ff;
+}
+.add-row .step {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 5px;
+  width: 1.7rem;
+  height: 1.9rem;
+  font-size: 0.7rem;
+  cursor: pointer;
+  line-height: 1;
+}
+.add-row .base { width: 4rem; padding: 0.3rem; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
+.add-row .letter {
+  width: 2.4rem;
+  padding: 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+  text-align: center;
+  text-transform: lowercase;
+}
+.add-row span { font-size: 0.76rem; color: var(--muted); }
+.add-preview { margin-left: auto; font-weight: 600; color: #1d4ed8; }
+
+.modal-check { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; margin: 0 0 0.5rem; }
+
 .range-hint { font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; }
 
 .item-foot { display: flex; gap: 0.4rem; margin-top: 0.45rem; }

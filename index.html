@@ -122,11 +122,15 @@
           Plak dit in WhatsApp voor je uur-update, of download het voor de contactpersoon.
           Maak daarnaast een foto/screenshot van de kaart hiernaast.
         </p>
+        <label class="modal-check">
+          <input type="checkbox" id="exportNotes" checked /> Notities meenemen in de tekst
+        </label>
         <textarea id="exportText" readonly spellcheck="false"></textarea>
         <div class="modal-actions">
           <button class="btn btn-primary" id="copyBtn" type="button">📋 Kopieer</button>
           <button class="btn" id="downloadTxtBtn" type="button">⬇ .txt</button>
           <button class="btn" id="downloadCsvBtn" type="button">⬇ .csv</button>
+          <button class="btn" id="pdfBtn" type="button">🗎 PDF + kaart</button>
           <button class="btn" id="printBtn" type="button">🖨 Print</button>
         </div>
       </div>
