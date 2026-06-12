@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Social Hub Routeplanner — Den Haag</title>
+    <meta
+      name="description"
+      content="Bezorgroute en afvinklijst voor de Social Hub shift in Den Haag (Hoefkade 9)."
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-title">
+        <h1>Social Hub Routeplanner</h1>
+        <span class="subtitle">Bezorgshift · The Social Hub · Hoefkade 9, Den Haag</span>
+      </div>
+      <div class="progress" id="progress" aria-live="polite">
+        <div class="progress-bar"><span id="progressFill"></span></div>
+        <div class="progress-text" id="progressText">Laden…</div>
+      </div>
+    </header>
+
+    <div class="banner" id="estimateBanner">
+      ⚠️ Gebied is een <strong>schatting</strong> op basis van de PDF-kaart. Stuur je de
+      RadiusMapper-screenshot, dan zet ik de exacte grens. Straten met
+      <span class="chip chip-maybe">?</span> hoef je <em>waarschijnlijk niet</em> te
+      bezorgen — verifieer met de officiële kaart.
+      <button class="banner-close" id="bannerClose" aria-label="Sluiten">✕</button>
+    </div>
+
+    <main class="layout">
+      <section class="panel side" aria-label="Bediening en stratenlijst">
+        <div class="controls">
+          <div class="control-row">
+            <label for="filterSelect">Toon</label>
+            <select id="filterSelect">
+              <option value="todo">Nog te doen</option>
+              <option value="all">Alle straten</option>
+              <option value="done">Afgerond</option>
+              <option value="excluded">NIET doen (rood)</option>
+            </select>
+          </div>
+          <div class="control-row">
+            <label for="directionSelect">Looprichting nummers</label>
+            <select id="directionSelect">
+              <option value="asc">Laag ➜ hoog</option>
+              <option value="desc">Hoog ➜ laag</option>
+            </select>
+          </div>
+          <div class="control-row search-row">
+            <input
+              id="searchInput"
+              type="search"
+              placeholder="Zoek straat…"
+              autocomplete="off"
+            />
+          </div>
+          <div class="control-row add-row">
+            <input id="addInput" type="text" placeholder="Straat handmatig toevoegen…" />
+            <button id="addBtn" class="btn btn-primary" type="button">+ Toevoegen</button>
+          </div>
+          <div class="control-row actions-row">
+            <button id="recomputeBtn" class="btn" type="button" title="Route opnieuw berekenen vanaf de hub">↻ Route</button>
+            <button id="refetchBtn" class="btn" type="button" title="Straten opnieuw ophalen van OpenStreetMap">⤓ OSM</button>
+            <button id="resetBtn" class="btn btn-danger" type="button" title="Alle voortgang wissen">Reset</button>
+          </div>
+          <div class="control-row">
+            <button id="exportBtn" class="btn btn-primary export-btn" type="button" title="Overzicht voor de contactpersoon">
+              📤 Export / doorgeven aan contactpersoon
+            </button>
+          </div>
+        </div>
+
+        <div class="sticker-note">
+          📭 Alleen bezorgen bij <strong>JA/JA</strong> of <strong>geen sticker</strong>.
+          Niet bij NEE/JA of NEE/NEE.
+        </div>
+
+        <div id="status" class="status">Straten laden vanaf OpenStreetMap…</div>
+        <ul id="streetList" class="street-list"></ul>
+      </section>
+
+      <section class="panel map-panel" aria-label="Kaart">
+        <div id="map"></div>
+        <div class="map-legend">
+          <span><i class="dot dot-hub"></i> Social Hub</span>
+          <span><i class="dot dot-todo"></i> Te doen</span>
+          <span><i class="dot dot-done"></i> Afgerond</span>
+          <span><i class="dot dot-partial"></i> Deels</span>
+          <span><i class="dot dot-excl"></i> NIET doen</span>
+        </div>
+      </section>
+    </main>
+
+    <div class="modal-overlay" id="exportModal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-label="Export overzicht">
+        <div class="modal-head">
+          <h2>Overzicht doorgeven</h2>
+          <button class="modal-close" id="exportClose" aria-label="Sluiten">✕</button>
+        </div>
+        <p class="modal-hint">
+          Plak dit in WhatsApp voor je uur-update, of download het voor de contactpersoon.
+          Maak daarnaast een foto/screenshot van de kaart hiernaast.
+        </p>
+        <textarea id="exportText" readonly spellcheck="false"></textarea>
+        <div class="modal-actions">
+          <button class="btn btn-primary" id="copyBtn" type="button">📋 Kopieer</button>
+          <button class="btn" id="downloadTxtBtn" type="button">⬇ .txt</button>
+          <button class="btn" id="downloadCsvBtn" type="button">⬇ .csv</button>
+          <button class="btn" id="printBtn" type="button">🖨 Print</button>
+        </div>
+      </div>
+    </div>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
