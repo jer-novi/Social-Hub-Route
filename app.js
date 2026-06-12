@@ -30,6 +30,7 @@ const defaultState = () => ({
   hub: { lat: HUB.lat, lng: HUB.lng },
   // per-street user data, keyed by lowercase street name
   streets: {},
+  controlsHidden: false,
 });
 
 function loadState() {
@@ -769,6 +770,24 @@ function wireTabs() {
 
 /* ---------------- Inklappen bovenbalk bij scrollen --------------------- */
 
+// Expliciete verberg-knop: houdt het bovenblok weg tot je 'm weer aanzet.
+function applyControlsHidden() {
+  const side = document.querySelector('.side');
+  side.classList.toggle('controls-hidden', !!state.controlsHidden);
+  const btn = document.getElementById('optsToggle');
+  btn.textContent = state.controlsHidden ? '⚙︎ Opties tonen' : '⚙︎ Opties verbergen';
+  btn.setAttribute('aria-expanded', String(!state.controlsHidden));
+}
+
+function wireOptsToggle() {
+  document.getElementById('optsToggle').addEventListener('click', () => {
+    state.controlsHidden = !state.controlsHidden;
+    saveState();
+    applyControlsHidden();
+  });
+  applyControlsHidden();
+}
+
 function wireCollapse() {
   const list = els.list;
   const side = document.querySelector('.side');
@@ -777,6 +796,8 @@ function wireCollapse() {
   list.addEventListener(
     'scroll',
     () => {
+      // expliciet verborgen? scroll-gedrag niet laten meespelen
+      if (side.classList.contains('controls-hidden')) return;
       if (!mq.matches) {
         side.classList.remove('collapsed');
         return;
@@ -833,6 +854,9 @@ function onPosition(pos) {
     posMarker.setLatLng(ll);
     accCircle.setLatLng(ll).setRadius(accuracy);
   }
+  // laat de Google Maps-knop naar je exacte locatie wijzen als GPS wél werkt
+  const g = document.getElementById('gmapsBtn');
+  if (g) g.href = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
   if (firstFix) {
     map.setView(ll, 17);
     firstFix = false;
@@ -1248,6 +1272,7 @@ function boot() {
   initMap();
   wireControls();
   wireTabs();
+  wireOptsToggle();
   wireCollapse();
   wireLocate();
   wireExport();
