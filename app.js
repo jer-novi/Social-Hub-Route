@@ -732,8 +732,63 @@ function renderItem(s) {
       saveState();
       render();
     });
-    addRow.append(add, addPlus);
+    if (!Array.isArray(ss.bells)) ss.bells = [];
+    const bellPlus = document.createElement('button');
+    bellPlus.type = 'button';
+    bellPlus.className = 'range-add bell-plus';
+    bellPlus.textContent = '+ bel (2×)';
+    bellPlus.title = 'Meerdere brievenbussen op 1 nummer, bv. 17 = 2 brieven';
+    bellPlus.addEventListener('click', () => {
+      const last = ss.ranges[ss.ranges.length - 1] || {};
+      ss.bells.push({ nr: last.from || '', count: '2' });
+      markEdited(s.name);
+      saveState();
+      render();
+    });
+    addRow.append(add, addPlus, bellPlus);
     wrap.appendChild(addRow);
+
+    // meervoudige bellen (× aantal brieven op 1 nummer)
+    if (ss.bells.length) {
+      const bw = document.createElement('div');
+      bw.className = 'adds';
+      ss.bells.forEach((b, bi) => {
+        const brow = document.createElement('div');
+        brow.className = 'add-row bell-row';
+        const nr = document.createElement('input');
+        nr.type = 'number';
+        nr.className = 'base';
+        nr.placeholder = 'nr';
+        nr.value = b.nr;
+        nr.inputMode = 'numeric';
+        const x = document.createElement('span');
+        x.textContent = '×';
+        const cnt = document.createElement('input');
+        cnt.type = 'number';
+        cnt.className = 'letter';
+        cnt.min = '2';
+        cnt.placeholder = '2';
+        cnt.value = b.count;
+        cnt.inputMode = 'numeric';
+        const prev = document.createElement('span');
+        prev.className = 'add-preview';
+        const draw = () => {
+          prev.textContent = b.nr ? `${b.nr} → ${parseInt(b.count, 10) || 2} brieven` : '';
+        };
+        nr.addEventListener('input', () => { b.nr = nr.value; markEdited(s.name); saveState(); draw(); });
+        cnt.addEventListener('input', () => { b.count = cnt.value; markEdited(s.name); saveState(); draw(); });
+        const bdel = document.createElement('button');
+        bdel.type = 'button';
+        bdel.className = 'range-del';
+        bdel.textContent = '✕';
+        bdel.title = 'Bel verwijderen';
+        bdel.addEventListener('click', () => { ss.bells.splice(bi, 1); saveState(); render(); });
+        draw();
+        brow.append(nr, x, cnt, bdel, prev);
+        bw.appendChild(brow);
+      });
+      wrap.appendChild(bw);
+    }
 
     // letteradres-toevoegingen (bv. 145a t/m b), basisnummer stapbaar door het bereik
     if (ss.adds.length) {
@@ -1298,6 +1353,8 @@ function rangesSummary(ss) {
     if (!nums.length) return;
     parts.push(nums.length > 1 ? `${addLabel(a)} → ${nums.join(', ')}` : addLabel(a));
   });
+  const bl = bellsLabel(ss);
+  if (bl) parts.push(`bellen: ${bl}`);
   return parts.join('; ');
 }
 
@@ -1342,6 +1399,23 @@ function deliveredAllText(ss) {
   return [...deliveredNumbers(ss).map(String), ...deliveredExtras(ss)].join(', ');
 }
 
+/* --- meervoudige bellen: bv. 17 met 2 brievenbussen → 2 brieven --- */
+function filledBells(ss) {
+  return (ss.bells || []).filter((b) => String(b.nr).trim() !== '');
+}
+function bellsLabel(ss) {
+  return filledBells(ss)
+    .map((b) => `${b.nr} (${parseInt(b.count, 10) || 2}×)`)
+    .join(', ');
+}
+function bellExtraLetters(ss) {
+  return filledBells(ss).reduce((t, b) => t + Math.max(0, (parseInt(b.count, 10) || 1) - 1), 0);
+}
+// Aantal brieven voor een straat: nummers + letteradressen + extra door bellen.
+function letterCount(ss) {
+  return deliveredNumbers(ss).length + deliveredExtras(ss).length + bellExtraLetters(ss);
+}
+
 function gatherForExport() {
   const rows = [];
   // OSM streets + manual-only streets
@@ -1359,6 +1433,8 @@ function gatherForExport() {
       done: !!ss.done,
       ranges: rangesSummary(ss),
       numbers: deliveredAllText(ss),
+      bells: bellsLabel(ss),
+      letters: letterCount(ss),
       numRange: s && s.low != null ? `${s.low}-${s.high}` : '',
       note: ss.note || '',
       manual: !!ss.manual,
@@ -1385,6 +1461,13 @@ function buildReport() {
     `Voortgang: ${afgerond.length}/${included.length} afgerond` +
       ` (${busy.length} mee bezig, ${todo.length} nog te doen, ${excluded.length} NIET doen)`
   );
+  const totLetters = [...osmStreets.keys(), ...Object.keys(state.streets)]
+    .filter((n, i, a) => a.indexOf(n) === i)
+    .reduce((t, n) => {
+      const ss = state.streets[n.toLowerCase()];
+      return t + (ss && !ss.excluded ? letterCount(ss) : 0);
+    }, 0);
+  L.push(`Brieven bezorgd (geteld uit invoer): ${totLetters}`);
   L.push('');
 
   // notitie meenemen volgens het vinkje in de export
@@ -1423,8 +1506,11 @@ function buildCsv() {
     'volgorde',
     'straat',
     'status',
+    'afgerond',
     'bezorgde_bereiken',
     'bezorgde_nummers',
+    'meervoudige_bellen',
+    'aantal_brieven',
     'nummerbereik',
     'notitie',
   ];
@@ -1435,8 +1521,11 @@ function buildCsv() {
         r.order < 9000 ? r.order : '',
         esc(r.name),
         statusLabel[r.status] || r.status,
+        r.done ? 'ja' : '',
         esc(r.ranges),
         esc(r.numbers),
+        esc(r.bells),
+        r.letters || '',
         esc(r.numRange),
         esc(r.note),
       ].join(',')
@@ -1605,6 +1694,55 @@ function wireExport() {
     download(`social-hub-shift-${dateStamp()}.csv`, buildCsv(), 'text/csv;charset=utf-8')
   );
   document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+  document.getElementById('backupBtn').addEventListener('click', () =>
+    download(`social-hub-backup-${dateStamp()}.json`, JSON.stringify(state), 'application/json')
+  );
+  const importFile = document.getElementById('importFile');
+  document.getElementById('importBtn').addEventListener('click', () => importFile.click());
+  importFile.addEventListener('change', () => {
+    const f = importFile.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        applyImport(JSON.parse(reader.result));
+      } catch (e) {
+        toast('Kon bestand niet lezen (geen geldige JSON).');
+      }
+      importFile.value = '';
+    };
+    reader.readAsText(f);
+  });
+}
+
+// Importeer een backup (vervangt alles) of een merge-bestand (voegt toe).
+function applyImport(obj) {
+  if (obj && obj.merge && obj.streets) {
+    let n = 0;
+    for (const key in obj.streets) {
+      const src = obj.streets[key];
+      const ss = streetState(src.name || key);
+      ss.name = ss.name || src.name || key;
+      if (Array.isArray(src.adds) && src.adds.length) ss.adds = (ss.adds || []).concat(src.adds);
+      if (Array.isArray(src.bells) && src.bells.length) ss.bells = (ss.bells || []).concat(src.bells);
+      if (src.note && !ss.note) ss.note = src.note;
+      if (src.status && (!ss.status || ss.status === 'todo')) ss.status = src.status;
+      if (Array.isArray(src.ranges) && (!ss.ranges || !ss.ranges.length)) ss.ranges = src.ranges;
+      n++;
+    }
+    saveState();
+    render();
+    toast(`Toevoegingen samengevoegd voor ${n} straten.`);
+    return;
+  }
+  if (obj && obj.streets) {
+    if (!confirm('Hele opgeslagen voortgang vervangen door dit backup-bestand?')) return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+    location.reload();
+    return;
+  }
+  toast('Onbekend bestandsformaat.');
 }
 
 /* ------------------------------- Boot ---------------------------------- */
