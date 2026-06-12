@@ -31,6 +31,7 @@ const defaultState = () => ({
   // per-street user data, keyed by lowercase street name
   streets: {},
   controlsHidden: false,
+  exportNotes: true,
 });
 
 function loadState() {
@@ -646,6 +647,9 @@ function renderItem(s) {
       item.append(row, parity, countEl);
       wrap.appendChild(item);
     });
+    if (!Array.isArray(ss.adds)) ss.adds = [];
+    const addRow = document.createElement('div');
+    addRow.className = 'range-actions';
     const add = document.createElement('button');
     add.type = 'button';
     add.className = 'range-add';
@@ -655,11 +659,118 @@ function renderItem(s) {
       saveState();
       render();
     });
-    wrap.appendChild(add);
+    const addPlus = document.createElement('button');
+    addPlus.type = 'button';
+    addPlus.className = 'range-add add-plus';
+    addPlus.textContent = '+ toevoeging (a/b)';
+    addPlus.title = 'Letteradres toevoegen, bv. 145a t/m b';
+    addPlus.addEventListener('click', () => {
+      const last = ss.ranges[ss.ranges.length - 1] || {};
+      ss.adds.push({ base: last.from || '', lf: '', lt: '' });
+      saveState();
+      render();
+    });
+    addRow.append(add, addPlus);
+    wrap.appendChild(addRow);
+
+    // letteradres-toevoegingen (bv. 145a t/m b), basisnummer stapbaar door het bereik
+    if (ss.adds.length) {
+      const stepVals = deliveredNumbers(ss);
+      const addsWrap = document.createElement('div');
+      addsWrap.className = 'adds';
+      ss.adds.forEach((a, ai) => {
+        const arow = document.createElement('div');
+        arow.className = 'add-row';
+
+        const down = document.createElement('button');
+        down.type = 'button';
+        down.className = 'step';
+        down.textContent = '▼';
+        down.title = 'Vorig nummer';
+        const baseIn = document.createElement('input');
+        baseIn.type = 'number';
+        baseIn.className = 'base';
+        baseIn.placeholder = 'nr';
+        baseIn.value = a.base;
+        baseIn.inputMode = 'numeric';
+        const up = document.createElement('button');
+        up.type = 'button';
+        up.className = 'step';
+        up.textContent = '▲';
+        up.title = 'Volgend nummer';
+
+        const lf = document.createElement('input');
+        lf.type = 'text';
+        lf.className = 'letter';
+        lf.placeholder = 'a';
+        lf.maxLength = 2;
+        lf.value = a.lf || '';
+        const dash = document.createElement('span');
+        dash.textContent = 't/m';
+        const lt = document.createElement('input');
+        lt.type = 'text';
+        lt.className = 'letter';
+        lt.placeholder = 'b';
+        lt.maxLength = 2;
+        lt.value = a.lt || '';
+        const prev = document.createElement('span');
+        prev.className = 'add-preview';
+        const drawPrev = () => (prev.textContent = expandAdd(a).join(', '));
+
+        const stepTo = (dir) => {
+          if (!stepVals.length) return;
+          const cur = parseInt(a.base, 10);
+          let next;
+          if (Number.isNaN(cur)) next = stepVals[0];
+          else if (dir > 0) next = stepVals.find((v) => v > cur);
+          else next = [...stepVals].reverse().find((v) => v < cur);
+          if (next !== undefined) {
+            a.base = String(next);
+            baseIn.value = a.base;
+            saveState();
+            drawPrev();
+          }
+        };
+        up.addEventListener('click', () => stepTo(1));
+        down.addEventListener('click', () => stepTo(-1));
+        baseIn.addEventListener('input', () => {
+          a.base = baseIn.value;
+          saveState();
+          drawPrev();
+        });
+        lf.addEventListener('input', () => {
+          a.lf = lf.value.toLowerCase();
+          saveState();
+          drawPrev();
+        });
+        lt.addEventListener('input', () => {
+          a.lt = lt.value.toLowerCase();
+          saveState();
+          drawPrev();
+        });
+
+        const adel = document.createElement('button');
+        adel.type = 'button';
+        adel.className = 'range-del';
+        adel.textContent = '✕';
+        adel.title = 'Toevoeging verwijderen';
+        adel.addEventListener('click', () => {
+          ss.adds.splice(ai, 1);
+          saveState();
+          render();
+        });
+
+        drawPrev();
+        arow.append(down, baseIn, up, lf, dash, lt, adel, prev);
+        addsWrap.appendChild(arow);
+      });
+      wrap.appendChild(addsWrap);
+    }
+
     const hint = document.createElement('div');
     hint.className = 'range-hint';
     hint.textContent =
-      'Tip: t/m spiegelt automatisch (1 nummer). Kies Even/Oneven om binnen het bereik alleen die kant te tellen.';
+      'Tip: t/m spiegelt automatisch. Even/Oneven telt alleen die kant. "+ toevoeging" = letteradres (bv. 145a t/m b); met ▲▼ stap je het nummer door het bereik.';
     wrap.appendChild(hint);
     li.appendChild(wrap);
   }
@@ -1044,17 +1155,21 @@ function filledRanges(ss) {
 
 // Samenvatting met uitgevouwen nummers, voor de export.
 function rangesSummary(ss) {
-  return filledRanges(ss)
-    .map((r) => {
-      const nums = expandRange(r);
-      const lbl = rangeLabel(r);
-      // toon de exacte nummers wanneer even/oneven is gekozen (geen misverstand)
-      if (r.parity && r.parity !== 'all' && nums.length > 1) {
-        return `${lbl} → ${nums.join(', ')}`;
-      }
-      return lbl;
-    })
-    .join('; ');
+  const parts = filledRanges(ss).map((r) => {
+    const nums = expandRange(r);
+    const lbl = rangeLabel(r);
+    // toon de exacte nummers wanneer even/oneven is gekozen (geen misverstand)
+    if (r.parity && r.parity !== 'all' && nums.length > 1) {
+      return `${lbl} → ${nums.join(', ')}`;
+    }
+    return lbl;
+  });
+  (ss.adds || []).forEach((a) => {
+    const nums = expandAdd(a);
+    if (!nums.length) return;
+    parts.push(nums.length > 1 ? `${addLabel(a)} → ${nums.join(', ')}` : addLabel(a));
+  });
+  return parts.join('; ');
 }
 
 // Platte lijst van alle bezorgde huisnummers (gesorteerd, uniek).
@@ -1062,6 +1177,40 @@ function deliveredNumbers(ss) {
   const set = new Set();
   filledRanges(ss).forEach((r) => expandRange(r).forEach((n) => set.add(n)));
   return [...set].sort((x, y) => x - y);
+}
+
+/* --- letteradres-toevoegingen, bv. 145a t/m b → 145a, 145b --- */
+function expandAdd(a) {
+  const base = (a.base || '').trim();
+  const lf = (a.lf || '').trim().toLowerCase();
+  const lt = (a.lt || '').trim().toLowerCase();
+  if (!base || !lf) return [];
+  const c1 = lf.charCodeAt(0);
+  let c2 = lt ? lt.charCodeAt(0) : c1;
+  if (c2 < c1) c2 = c1;
+  if (c1 < 97 || c1 > 122 || c2 > 122) return [base + lf]; // fallback
+  const out = [];
+  for (let c = c1; c <= c2; c++) out.push(base + String.fromCharCode(c));
+  return out;
+}
+
+function addLabel(a) {
+  const base = (a.base || '').trim();
+  const lf = (a.lf || '').trim().toLowerCase();
+  const lt = (a.lt || '').trim().toLowerCase();
+  if (!base || !lf) return '';
+  return lt && lt !== lf ? `${base}${lf}–${lt}` : `${base}${lf}`;
+}
+
+function deliveredExtras(ss) {
+  const out = [];
+  (ss.adds || []).forEach((a) => expandAdd(a).forEach((s) => out.push(s)));
+  return out;
+}
+
+// Alle bezorgde adressen als tekst: hele nummers + letteradressen.
+function deliveredAllText(ss) {
+  return [...deliveredNumbers(ss).map(String), ...deliveredExtras(ss)].join(', ');
 }
 
 function gatherForExport() {
@@ -1079,7 +1228,7 @@ function gatherForExport() {
       name,
       status: ss.excluded ? 'excluded' : ss.status,
       ranges: rangesSummary(ss),
-      numbers: deliveredNumbers(ss).join(', '),
+      numbers: deliveredAllText(ss),
       numRange: s && s.low != null ? `${s.low}-${s.high}` : '',
       note: ss.note || '',
       manual: !!ss.manual,
@@ -1108,10 +1257,13 @@ function buildReport() {
   );
   L.push('');
 
+  // notitie meenemen volgens het vinkje in de export
+  const noteOf = (r) => (state.exportNotes && r.note ? `  📝 ${r.note}` : '');
+
   const block = (title, list, fmt) => {
     if (!list.length) return;
     L.push(title);
-    list.forEach((r) => L.push('  ' + fmt(r)));
+    list.forEach((r) => L.push('  ' + fmt(r) + noteOf(r)));
     L.push('');
   };
 
@@ -1121,11 +1273,9 @@ function buildReport() {
   block('◑ DEELS BEZORGD:', partial, (r) =>
     `${r.name} — bezorgd: ${r.ranges || '(geen bereik ingevuld)'}`
   );
-  block('✗ NIKS BEZORGD HIER:', done.filter((r) => r.status === 'none'), (r) =>
-    `${r.name}${r.note ? ` — ${r.note}` : ''}`
-  );
+  block('✗ NIKS BEZORGD HIER:', done.filter((r) => r.status === 'none'), (r) => `${r.name}`);
   block('▢ NOG TE DOEN:', todo, (r) => `${r.name}${r.numRange ? ` (${r.numRange})` : ''}`);
-  block('⛔ NIET DOEN (rood):', excluded, (r) => `${r.name}${r.note ? ` — ${r.note}` : ''}`);
+  block('⛔ NIET DOEN (rood):', excluded, (r) => `${r.name}`);
 
   return L.join('\n');
 }
@@ -1182,14 +1332,125 @@ function dateStamp() {
   return new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
 }
 
+/* ---- PDF: schematische kaart van de straten (kleur = status) + legenda ---- */
+
+function htmlEsc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+function buildSchematicSVG() {
+  const streets = [...osmStreets.values()];
+  if (!streets.length) return '<p>(geen kaartdata geladen)</p>';
+  let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+  const see = (la, ln) => {
+    minLat = Math.min(minLat, la); maxLat = Math.max(maxLat, la);
+    minLng = Math.min(minLng, ln); maxLng = Math.max(maxLng, ln);
+  };
+  AREA_POLYGON.forEach(([la, ln]) => see(la, ln));
+  streets.forEach((s) => s.segments.forEach((seg) => seg.forEach(([la, ln]) => see(la, ln))));
+  see(state.hub.lat, state.hub.lng);
+  const midLat = (minLat + maxLat) / 2;
+  const cos = Math.cos((midLat * Math.PI) / 180);
+  const W = 900, pad = 16;
+  const dx = (maxLng - minLng) * cos || 1;
+  const dy = maxLat - minLat || 1;
+  const H = Math.max(320, Math.min(1200, Math.round(W * (dy / dx))));
+  const X = (ln) => (pad + ((ln - minLng) / (maxLng - minLng)) * (W - 2 * pad)).toFixed(1);
+  const Y = (la) => (pad + ((maxLat - la) / (maxLat - minLat)) * (H - 2 * pad)).toFixed(1);
+  const poly = (pts) => pts.map(([la, ln]) => `${X(ln)},${Y(la)}`).join(' ');
+  const p = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="max-width:900px;border:1px solid #ccc;background:#fff">`];
+  p.push(`<polygon points="${poly(AREA_POLYGON)}" fill="#3b82f6" fill-opacity="0.06" stroke="#2563eb" stroke-width="1.5"/>`);
+  RED_REFERENCE_ZONES.forEach((z) =>
+    p.push(`<polygon points="${poly(z.polygon)}" fill="#dc2626" fill-opacity="0.08" stroke="#dc2626" stroke-dasharray="5 4" stroke-width="1"/>`)
+  );
+  streets.forEach((s) => {
+    const col = statusColor(s.name);
+    s.segments.forEach((seg) =>
+      p.push(`<polyline points="${poly(seg)}" fill="none" stroke="${col}" stroke-width="2.4" stroke-linecap="round"/>`)
+    );
+  });
+  p.push(`<circle cx="${X(state.hub.lng)}" cy="${Y(state.hub.lat)}" r="6" fill="#1d4ed8" stroke="#fff" stroke-width="2"/>`);
+  p.push('</svg>');
+  return p.join('');
+}
+
+function buildOverviewHTML() {
+  const rows = gatherForExport();
+  const done = rows.filter((r) => r.status === 'all');
+  const partial = rows.filter((r) => r.status === 'partial');
+  const none = rows.filter((r) => r.status === 'none');
+  const todo = rows.filter((r) => r.status === 'todo');
+  const excl = rows.filter((r) => r.status === 'excluded');
+  const note = (r) => (state.exportNotes && r.note ? ` <span class="nt">📝 ${htmlEsc(r.note)}</span>` : '');
+  const grp = (title, list, fmt) =>
+    list.length ? `<h3>${title}</h3><ul>${list.map((r) => `<li>${fmt(r)}${note(r)}</li>`).join('')}</ul>` : '';
+  return (
+    grp('✓ Alles bezorgd', done, (r) => `<b>${htmlEsc(r.name)}</b>${r.numRange ? ` (${r.numRange})` : ''}`) +
+    grp('◑ Deels bezorgd', partial, (r) => `<b>${htmlEsc(r.name)}</b> — ${htmlEsc(r.ranges || '')}`) +
+    grp('✗ Niks bezorgd', none, (r) => `<b>${htmlEsc(r.name)}</b>`) +
+    grp('⛔ NIET doen (rood)', excl, (r) => `<b>${htmlEsc(r.name)}</b>`) +
+    `<p class="muted">Nog te doen: ${todo.length} straten.</p>`
+  );
+}
+
+function exportPdf() {
+  const w = window.open('', '_blank');
+  if (!w) {
+    toast('Pop-up geblokkeerd — sta pop-ups toe voor de PDF.');
+    return;
+  }
+  const rows = gatherForExport();
+  const included = rows.filter((r) => r.status !== 'excluded');
+  const done = included.filter((r) => r.status === 'all' || r.status === 'none').length;
+  const date = new Date().toLocaleString('nl-NL');
+  const legend = `<div class="legend">
+    <span><i style="background:#1d4ed8;border-radius:50%"></i> Social Hub</span>
+    <span><i style="background:#2563eb"></i> Te doen</span>
+    <span><i style="background:#16a34a"></i> Afgerond</span>
+    <span><i style="background:#f59e0b"></i> Deels</span>
+    <span><i style="background:#dc2626"></i> NIET doen</span>
+  </div>`;
+  w.document.write(`<!doctype html><html lang="nl"><head><meta charset="utf-8">
+    <title>Social Hub shift ${htmlEsc(date)}</title>
+    <style>
+      body{font-family:system-ui,Arial,sans-serif;color:#1f2733;margin:18px;}
+      h1{font-size:18px;margin:0 0 2px;} h3{margin:14px 0 4px;font-size:14px;}
+      .sub{color:#5b6675;font-size:12px;margin-bottom:8px;}
+      .legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;margin:8px 0;}
+      .legend i{display:inline-block;width:12px;height:12px;vertical-align:middle;margin-right:4px;}
+      ul{margin:2px 0 8px;padding-left:18px;font-size:12.5px;} li{margin:2px 0;}
+      .nt{color:#7a5b00;} .muted{color:#5b6675;font-size:12px;}
+      @media print{.noprint{display:none;}}
+    </style></head><body>
+    <h1>Social Hub bezorgshift — Den Haag</h1>
+    <div class="sub">${htmlEsc(date)} · ${htmlEsc(HUB.name)} · <b>${done}/${included.length}</b> straten afgehandeld</div>
+    ${legend}
+    ${buildSchematicSVG()}
+    ${buildOverviewHTML()}
+    <button class="noprint" onclick="window.print()" style="margin-top:12px;padding:8px 14px;">🖨 Opslaan als PDF</button>
+  </body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 500);
+}
+
 function wireExport() {
   const modal = document.getElementById('exportModal');
   const textarea = document.getElementById('exportText');
+  const notesChk = document.getElementById('exportNotes');
+  notesChk.checked = state.exportNotes !== false;
   const open = () => {
     textarea.value = buildReport();
     modal.hidden = false;
   };
   const close = () => (modal.hidden = true);
+
+  notesChk.addEventListener('change', () => {
+    state.exportNotes = notesChk.checked;
+    saveState();
+    textarea.value = buildReport();
+  });
+  document.getElementById('pdfBtn').addEventListener('click', exportPdf);
 
   document.getElementById('exportBtn').addEventListener('click', open);
   document.getElementById('exportClose').addEventListener('click', close);
