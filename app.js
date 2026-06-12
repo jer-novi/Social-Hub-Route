@@ -775,7 +775,8 @@ function applyControlsHidden() {
   const side = document.querySelector('.side');
   side.classList.toggle('controls-hidden', !!state.controlsHidden);
   const btn = document.getElementById('optsToggle');
-  btn.textContent = state.controlsHidden ? '⚙︎ Opties tonen' : '⚙︎ Opties verbergen';
+  btn.textContent = state.controlsHidden ? '▸ Opties tonen' : '▾ Opties verbergen';
+  btn.classList.toggle('is-hidden', !!state.controlsHidden);
   btn.setAttribute('aria-expanded', String(!state.controlsHidden));
 }
 
@@ -788,27 +789,20 @@ function wireOptsToggle() {
   applyControlsHidden();
 }
 
+// Scrollen-omlaag bootst de verberg-knop na: het bovenblok gaat weg en
+// blijft weg. Terugkomen kan ALLEEN via het knopje bovenin (nooit via scroll).
 function wireCollapse() {
   const list = els.list;
-  const side = document.querySelector('.side');
   const mq = window.matchMedia('(max-width: 820px)');
   let last = 0;
   list.addEventListener(
     'scroll',
     () => {
-      // expliciet verborgen? scroll-gedrag niet laten meespelen
-      if (side.classList.contains('controls-hidden')) return;
-      if (!mq.matches) {
-        side.classList.remove('collapsed');
-        return;
-      }
       const cur = list.scrollTop;
-      if (cur <= 4) {
-        side.classList.remove('collapsed'); // bovenaan: altijd open
-      } else if (cur > last + 4) {
-        side.classList.add('collapsed'); // omlaag scrollen: inklappen
-      } else if (cur < last - 8) {
-        side.classList.remove('collapsed'); // omhoog scrollen: uitklappen
+      if (mq.matches && cur > last + 6 && cur > 20 && !state.controlsHidden) {
+        state.controlsHidden = true; // zelfde effect als op 'verbergen' drukken
+        saveState();
+        applyControlsHidden();
       }
       last = cur;
     },
