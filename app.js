@@ -573,15 +573,14 @@ function renderItem(s) {
     ss.ranges.forEach((r, idx) => {
       const row = document.createElement('div');
       row.className = 'range-row';
+      // Onthoud of het t/m-vakje handmatig is aangepast; zo niet, dan spiegelt
+      // het automatisch het "van"-nummer (vaak bezorg je maar bij 1 nummer).
+      if (r.toTouched === undefined) r.toTouched = r.to !== '' && r.to !== r.from;
       const from = document.createElement('input');
       from.type = 'number';
       from.placeholder = 'van';
       from.value = r.from;
       from.inputMode = 'numeric';
-      from.addEventListener('input', () => {
-        r.from = from.value;
-        saveState();
-      });
       const sep = document.createElement('span');
       sep.textContent = 't/m';
       const to = document.createElement('input');
@@ -589,8 +588,17 @@ function renderItem(s) {
       to.placeholder = 't/m';
       to.value = r.to;
       to.inputMode = 'numeric';
+      from.addEventListener('input', () => {
+        r.from = from.value;
+        if (!r.toTouched) {
+          r.to = from.value; // spiegel automatisch → reeks van 1 nummer
+          to.value = from.value;
+        }
+        saveState();
+      });
       to.addEventListener('input', () => {
         r.to = to.value;
+        r.toTouched = to.value !== ''; // leeg maken = weer automatisch spiegelen
         saveState();
       });
       const del = document.createElement('button');
@@ -617,6 +625,10 @@ function renderItem(s) {
       render();
     });
     wrap.appendChild(add);
+    const hint = document.createElement('div');
+    hint.className = 'range-hint';
+    hint.textContent = 'Tip: t/m neemt automatisch hetzelfde nummer over (1 nummer). Pas aan voor een reeks.';
+    wrap.appendChild(hint);
     li.appendChild(wrap);
   }
 
